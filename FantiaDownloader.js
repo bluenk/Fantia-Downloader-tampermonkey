@@ -365,6 +365,8 @@
 				en: {
 					downloadImg: `Download Images`,
 					downloadImgZip: `Download ZIP`,
+					downloadMonthlyImg: `Dowload Image (This Month)`,
+					downloadMonthlyImgZip: `Download ZIP (This Month)`,
 					retrieving: `Retrieving Link`,
 					zipping: `Zipping`,
 					processing: `Processing`,
@@ -399,6 +401,8 @@
 				ja: {
 					downloadImg: `ダウンロード`,
 					downloadImgZip: `ZIPダウンロード`,
+					downloadMonthlyImg: `ダウンロード（本月）`,
+					downloadMonthlyImgZip: `ZIPダウンロード（本月）`,
 					retrieving: `取得中`,
 					zipping: `zip圧縮`,
 					processing: `圧縮`,
@@ -433,6 +437,8 @@
 				zh: {
 					downloadImg: `全圖片下載`,
 					downloadImgZip: `ZIP 下載`,
+					downloadMonthlyImg: `全圖片下載（本月份）`,
+					downloadMonthlyImgZip: `ZIP 下載（本月份）`,
 					retrieving: `擷取連結中`,
 					zipping: `壓縮檔案中`,
 					processing: `壓縮`,
@@ -857,6 +863,20 @@
 	}
 
 	const getDownLoadButton = () => {
+		const bnMonthList = $(`.list-group-lg`);
+		bnMonthList.css({ "display": "grid" });
+		bnMonthList.find('a').css({ "grid-area": "1/1/1/span 2" });
+		bnMonthList.append(
+			`<button box-type="box" class="btn btn-default btn-md downloadButton zip" style="grid-area: 2/1;">` + 
+				`<i class="fa fa-file-archive-o fa-2x" style="color: #f9a63b  !important;"></i>` +
+				`<span class="btn-text-sub downloadSpanZip" style="color: #f9a63b  !important;">${setting.getDefault('downloadMonthlyImgZip')}</span>` +
+			`</button>` +
+			`<button box-type="box" class="btn btn-default btn-md downloadButton file" style="grid-area: 2/2;">` +
+				`<i class="fa fa-download fa-2x" style="color: #fe7070 !important;"></i>` +
+				`<span class="btn-text-sub downloadSpan" style="color: #fe7070 !important;">${setting.getDefault('downloadMonthlyImg')}</span>` + 
+				`</button>`
+		);
+
 		$("div.post-content-inner").each((i, div) => {
 			$(div).addClass("boxIndex").attr("boxIndex", i);
 			$(div).find("div.btn-group-tabs").append(`<button box-type="box" class="btn btn-default btn-md downloadButton zip"><i class="fa fa-file-archive-o fa-2x" style="color: #f9a63b  !important;"></i> <span class="btn-text-sub downloadSpanZip" style="color: #f9a63b  !important;">${windowSetting.getDefault('downloadImgZip')}</span></button><button box-type="box" class="btn btn-default btn-md downloadButton file"><i class="fa fa-download fa-2x" style="color: #fe7070 !important;"></i> <span class="btn-text-sub downloadSpan" style="color: #fe7070 !important;">${windowSetting.getDefault('downloadImg')}</span></button>`);
