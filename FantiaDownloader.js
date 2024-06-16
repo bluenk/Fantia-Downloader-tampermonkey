@@ -958,18 +958,4 @@
 			return;
 		}
 	};
-
-	/** Catch xhr response from fantia's api */
-	$(document).on('ajaxSuccess', (event, req, options) => {
-		console.log({event, req, options})
-		if (
-			!(
-				options.url.startsWith('https://fantia.jp/api/v1/fanclub/backnumbers/monthly_contents/') ||
-				options.url.startsWith('https://fantia.jp/api/v1/posts/')
-			)
-		) return;
-		console.log('filtered',{event, req, options});
-		window.apiData = req.responseJSON; // { backnumber: {...} } or { post: {...} }
-	});
-
 })();
