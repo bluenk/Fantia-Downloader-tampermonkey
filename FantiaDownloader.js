@@ -822,12 +822,18 @@
 			});
 		}
 
+		/**
+		 * File downloader.
+		 * @param {Blob | string} content Content to download. `Blob` or `URL string`.
+		 * @param {string} name 
+		 * @returns {Promise} Resolve at onload a.k.a complete.
+		 */
 		static download(content, name) {
-			GM_download({
-				name,
-				url: content instanceof Blob ? URL.createObjectURL(content) : content,
-				saveAs: false // this will popup "Save As" FileSavePicker window if set to true.
-			})
+			return GM.download({
+					name,
+					url: content instanceof Blob ? URL.createObjectURL(content) : content,
+					saveAs: false // this will popup "Save As" FileSavePicker window if set to true.
+			});
 		}
 
 		static getDigits(i) {
