@@ -14,6 +14,8 @@
 // @icon         https://www.google.com/s2/favicons?domain=fantia.jp
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.2.0/jszip.min.js
 // @grant        GM_download
+// @grant		 GM_xmlhttpRequest
+// @connect		 fantia.jp
 // ==/UserScript==
 
 //log: 3.1.5 remove jQuery inject
@@ -670,6 +672,32 @@
 				this.metaData.postTitle = windowSetting.metaJson.post.title;
 				this.metaData.title = windowSetting.metaJson.post.title;
 				this.metaData.d = 1;
+			} else if (this.boxType == "bnMonth") {
+				let content = this.metaData.content[0];
+				let p = (content.plan == null) ? `一般公開` : undefined;
+				this.metaData.category = "bnMonth";
+				this.metaData.indextype = "bnMonth";
+				this.metaData.srcArr =
+					this.metaData.content.map(({
+						filename, download_uri, category, content_type, parent_post, title, post_content_photos
+					}) => {
+						return {
+							category,
+							mimeType: content_type,
+							title,
+							filename,
+							urls:
+								category === 'file'
+									? [{ url: `https://fantia.jp${download_uri}` }]
+									: post_content_photos.map(({ url }) => { return { url: url.original } }),
+							post: {
+								id: parent_post.url.split('/').pop(),
+								title: parent_post.title
+							}
+						}
+				});
+				this.metaData.fee = p || content.plan.price;
+				this.metaData.plan = p || content.plan.name;
 			}
 			this.zipName = `${windowSetting[`${(windowSetting.authorSaveCheck == 'On') ? `author` : `general`}Save`].zipName}.zip`;
 			this.fileName = `${windowSetting[`${(windowSetting.authorSaveCheck == 'On') ? `author` : `general`}Save`].fileName}.{ext}`;
@@ -681,7 +709,7 @@
 			this.d = this.metaData.d;
 
 			this.zip = (this.type == `zip`) ? new JSZip() : undefined;
-			return this.downloadImg();
+			return this.boxType === 'bnMonth' ? this.downloadAll() : this.downloadImg();
 		}
 
 		changeButton(mode, input = false) {
@@ -779,8 +807,14 @@
 		}
 
 		nextName(type, index, mimeType) {
-			if (this.metaData.indextype != "photo_gallery") return this[`${type}fmt`].replace(`{imgIndex}`, (this.metaData.indextype).toString().padStart(this.d, 0)).replace(`{ext}`, mimeType.toString().split(`/`)[1]);
-			return this[`${type}fmt`].replace(`{imgIndex}`, (Number(index) + Number(this[`${type}ImgIndex0`])).toString().padStart(this.d, 0)).replace(`{ext}`, mimeType.toString().split(`/`)[1]);
+			const repalceImgIndex =
+				(this.metaData.indextype === "post") || (mimeType.split(`/`)[0] !== 'image') // replace imgIndex placeholder with indexType or flieType
+					? this.metaData.indextype
+					: (Number(index) + Number(this[`${type}ImgIndex0`])).toString().padStart(this.d, 0);
+					
+			return this[`${type}fmt`]
+				.replace(`{imgIndex}`, repalceImgIndex)
+				.replace(`{ext}`, mimeType.toString().split(`/`)[1]);
 		}
 
 		downloadImg() {
@@ -820,6 +854,65 @@
 					}
 				});
 			});
+		}
+
+		/** Dowmload all downloadable. */
+		async downloadAll() {
+			let dataCont = 0;
+			this.changeButton(`start`);
+			this.changeButton(`catchLink`);
+			this.changeButton(`log`, `${dataCont} / ${this.metaData.srcArr.length}`); // showing box count, not file count.
+
+			const self = this;
+			const downloadQueue = [];
+
+			// on every box of current page.
+			for (const box of self.metaData.srcArr) {
+				self.changeButton(`log`, `${++dataCont} / ${self.metaData.srcArr.length}`);
+				
+				const { urls, post, title } = box;
+				self.metaData.postId = post.id;
+				self.metaData.postTitle = post.title;
+				self.metaData.boxTitle = title;
+
+				self.paramsParser(`zip`, this.zipName);
+				self.paramsParser(`file`, this.fileName);
+
+				// on every file in box
+				for (const i in urls) {
+					const { url } = urls[i];
+					const [
+						blob,
+						mimeType, // nom-image file will response as `binary/octet-stream`.
+						lastModified
+					] = await downloader.loadAsBlobAsync(url);
+
+					const filename = self.nextName('file', i, box.mimeType ?? mimeType);
+
+					if (self.zip) {
+						self.zip.file(
+							filename,
+							blob,
+							{ date: new Date(lastModified) }
+						);
+					} else {
+						downloadQueue.push(downloader.download(blob, filename));
+					}
+				}
+			}
+				
+			if (self.zip) {
+				const zipBlob = await self.zip.generateAsync(
+					{ type: 'blob' },
+					(m) => self.changeButton(`log`, `${windowSetting.getDefault(`processing`)}：${m.percent.toFixed(2)} %`)
+				);
+
+				downloadQueue.push(downloader.download(zipBlob, self.nextName('zip', 0, 'application/zip')));
+			}
+
+			// wait for all download to finish.
+			await Promise.all(downloadQueue);
+			self.changeButton('end');
 		}
 
 		/**
@@ -895,13 +988,13 @@
 		bnMonthList.css({ "display": "grid" });
 		bnMonthList.find('a').css({ "grid-area": "1/1/1/span 2" });
 		bnMonthList.append(
-			`<button box-type="box" class="btn btn-default btn-md downloadButton zip" style="grid-area: 2/1;">` + 
+			`<button box-type="bnMonth" class="btn btn-default btn-md downloadButton zip" style="grid-area: 2/1;">` + 
 				`<i class="fa fa-file-archive-o fa-2x" style="color: #f9a63b  !important;"></i>` +
-				`<span class="btn-text-sub downloadSpanZip" style="color: #f9a63b  !important;">${setting.getDefault('downloadMonthlyImgZip')}</span>` +
+				`<span class="btn-text-sub downloadSpanZip" style="color: #f9a63b  !important;">${windowSetting.getDefault('downloadMonthlyImgZip')}</span>` +
 			`</button>` +
-			`<button box-type="box" class="btn btn-default btn-md downloadButton file" style="grid-area: 2/2;">` +
+			`<button box-type="bnMonth" class="btn btn-default btn-md downloadButton file" style="grid-area: 2/2;">` +
 				`<i class="fa fa-download fa-2x" style="color: #fe7070 !important;"></i>` +
-				`<span class="btn-text-sub downloadSpan" style="color: #fe7070 !important;">${setting.getDefault('downloadMonthlyImg')}</span>` + 
+				`<span class="btn-text-sub downloadSpan" style="color: #fe7070 !important;">${windowSetting.getDefault('downloadMonthlyImg')}</span>` + 
 				`</button>`
 		);
 
